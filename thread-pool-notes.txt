@@ -1,0 +1,168 @@
+https://docs.google.com/document/d/1MDvo0KTN8GmzW_iZNl-JiLkq0WcTitHwIlsC94KR2V4/edit?usp=sharing
+
+
+ https://www.youtube.com/watch?v=3JYNNf3Iljo
+https://www.youtube.com/watch?v=3JYNNf3Iljo
+
+Thread pool is provided by libUV library in node js 
+Env variable name  = UV_THREADPOOL_SIZE 
+By default no of threads in thread pool are  4
+
+How to set no of  threds in thread pool 
+process.env.UV_THREADPOOL_SIZE  = 32
+Maximum thread pool size  = 1024
+
+Experiment  no 1 
+When task  executed synchronously 
+
+const crypto  = require('node:crypto');
+let start  =  Date.now();
+crypto.pbkdf2Sync("password", "salt",21133, 233 ,"sha512") 
+let time = Date.now()  - start;
+console.log("Total time taken  =", time)
+
+OUTPUT 
+Total time taken  = 205
+
+Conclusion 
+When the task is executed synchnously it is executed by main thread 
+And it is blocking operation 
+When the task is completed then only the main thread will move to next task 
+
+Experiment no 2
+ When the multiple synchronous tasks are executed 
+
+// code
+const crypto  = require('node:crypto');
+let start  =  Date.now();
+console.log("one is executed");
+crypto.pbkdf2Sync("password", "salt",21133, 233 ,"sha512");
+console.log("Second is executed"); 
+crypto.pbkdf2Sync("password", "salt",21133, 233 ,"sha512")
+console.log("the third is executed");
+crypto.pbkdf2Sync("password", "salt",21133, 233 ,"sha512") 
+
+let time = Date.now()  - start;
+console.log("Total time taken  =", time)
+
+OUTPUT 
+one is executed
+Second is executed
+the third is executed
+Total time taken  = 636
+
+Conclusion 
+For  executing single tasks the time taken 205 = t 
+And for executing 3 synchronous  tasks  it is taken  = 3t =  636 (almost)
+The above  execution is blocking done sequentially first first task executed and then second task is executed then theird task  executed
+
+
+Experiment no  3
+ When multiple functions got  executed in asynchrounouse way
+
+const crypto  = require('node:crypto');
+let start  =  Date.now();
+let MAX_CALLS  = 3;
+for(let i=0;i< MAX_CALLS; i++){
+    crypto.pbkdf2("password", "salt",21133, 233 ,"sha512", (hash)=>{
+        let time = Date.now()  - start;
+        console.log("Hash: ",i+1+" = ", time)
+    });   
+}
+OUTPUT
+Hash:  3 =  239
+Hash:  1 =  278
+Hash:  2 =  295
+
+Conclusion 
+The tasks  are executed in the separate thread which taken from thread pool 
+When tasks are executed in async way it is not blocking and asynch
+The above tasks executed parallely that’s why it is  taken average time  240 mseconds
+
+Experiment  no 4
+
+What if no of asynchrnouse tasks are greater than number of threds in thread pool
+Example  we have 4 threds in threapool and no of tasks are need to execute are 5 
+
+const crypto  = require('node:crypto');
+let start  =  Date.now();
+let MAX_CALLS  = 5;
+for(let i=0;i< MAX_CALLS; i++){
+    crypto.pbkdf2("password", "salt",21133, 233 ,"sha512", (hash)=>{
+        let time = Date.now()  - start;
+        console.log("Hash: ",i+1+" = ", time)
+    });   
+}
+OUTPUT
+Hash:  3 =  260
+Hash:  4 =  297
+Hash:  1 =  303
+
+Conclusion 
+The four tasks are taken  average  300 milliseconds 
+Where 5th tasks are taken almost double 
+
+
+Experiment no 6
+Set no of threads in thread pool =  no of async operations then
+
+const crypto  = require('node:crypto');
+
+let start  =  Date.now();
+let MAX_CALLS  = 5;
+process.env.UV_THREADPOOL_SIZE = 5;
+
+for(let i=0;i< MAX_CALLS; i++){
+    crypto.pbkdf2("password", "salt",21133, 233 ,"sha512", (hash)=>{
+        let time = Date.now()  - start;
+        console.log("Hash: ",i+1+" = ", time)
+    });   
+}
+OUTPUT 
+Hash:  2 =  227
+Hash:  1 =  246
+Hash:  4 =  296
+Hash:  3 =  309
+Hash:  5 =  465
+Conclusion 
+Here we reduce the time of execution of 5 tasks  to average  300mseconds
+Experiment no 7
+Number of async tasks and threds in thread pool  are greater then the cpu cors
+
+const crypto  = require('node:crypto');
+let start  =  Date.now();
+let MAX_CALLS  = 16;
+process.env.UV_THREADPOOL_SIZE = 16;
+for(let i=0;i< MAX_CALLS; i++){
+    crypto.pbkdf2("password", "salt",21133, 233 ,"sha512", (hash)=>{
+        let time = Date.now()  - start;
+        console.log("Hash: ",i+1+" = ", time)
+    });   
+}
+OUTPUT
+Hash:  1 =  260
+Hash:  3 =  280
+Hash:  4 =  281
+Hash:  2 =  282
+Hash:  6 =  525
+Hash:  5 =  526
+Hash:  8 =  532
+Hash:  7 =  577
+Hash:  9 =  784
+Hash:  11 =  822
+Hash:  10 =  824
+Hash:  12 =  893
+Hash:  14 =  1048
+Hash:  15 =  1053
+Hash:  13 =  1057
+Hash:  16 =  1181
+
+ Conclusion
+Here the average time taken for  the tasks until the number of cors in cpu  is equal  -  500 seconds 
+The 16 threds are shared between the  8 cors of cpu each core will get two threds 
+After the 8 threds  the os scheduler schedule remaining threds accoedigly 
+
+
+
+
+
